@@ -335,9 +335,11 @@
                                 console.log(
                                     `📊 Stats: ${response.message_count} messages, ${response.otp_count} OTPs`
                                 );
-                                showNotification(
-                                    `✓ Fetched ${response.message_count} messages, found ${response.otp_count} OTPs`,
-                                    'success');
+                                
+                                // Tampilkan notifikasi fetch berhasil
+                                if (response.message_count > 0) {
+                                    showNotification(`Fetch berhasil: ${response.message_count} pesan baru diproses, ${response.otp_count} OTP ditemukan (5 menit terakhir)`, 'info');
+                                }
                             }
 
                             // Cek data baru
@@ -635,14 +637,49 @@
                 return date.toLocaleString('id-ID');
             }
 
-            // Copy to clipboard
+            // Copy to clipboard dengan fallback
             window.copyToClipboard = function(text) {
-                navigator.clipboard.writeText(text).then(function() {
-                    showNotification('OTP berhasil disalin!', 'success');
-                }).catch(function(err) {
-                    showNotification('Gagal menyalin OTP', 'danger');
-                });
+                // Method 1: Modern Clipboard API
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text).then(function() {
+                        showNotification('OTP "' + text + '" berhasil disalin ke clipboard!', 'success');
+                    }).catch(function(err) {
+                        // Fallback jika clipboard API gagal
+                        fallbackCopyToClipboard(text);
+                    });
+                } else {
+                    // Fallback untuk browser lama atau non-HTTPS
+                    fallbackCopyToClipboard(text);
+                }
             };
+
+            // Fallback copy menggunakan textarea hidden
+            function fallbackCopyToClipboard(text) {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                
+                // Pastikan tidak terlihat
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                textArea.style.top = '-9999px';
+                
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        showNotification('OTP "' + text + '" berhasil disalin ke clipboard!', 'success');
+                    } else {
+                        showNotification('Gagal menyalin OTP. Coba copy manual: ' + text, 'warning');
+                    }
+                } catch (err) {
+                    showNotification('Gagal menyalin OTP. Coba copy manual: ' + text, 'warning');
+                }
+                
+                document.body.removeChild(textArea);
+            }
 
             // Tampilkan notifikasi
             function showNotification(message, type = 'info') {

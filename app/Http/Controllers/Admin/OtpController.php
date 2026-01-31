@@ -22,9 +22,10 @@ class OtpController extends Controller
             // Fetch messages dari semua mail accounts yang aktif
             $messageCount = $this->fetchAllAccountMessages();
             
-            // Get OTP codes
-            $otps = OtpCode::orderBy('created_at', 'desc')
-                ->limit(100)
+            // Get OTP codes - hanya 5 menit terakhir untuk performa
+            $fiveMinutesAgo = now()->subMinutes(5);
+            $otps = OtpCode::where('created_at', '>=', $fiveMinutesAgo)
+                ->orderBy('created_at', 'desc')
                 ->get();
 
             return response()->json([
