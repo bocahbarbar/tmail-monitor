@@ -88,7 +88,7 @@
                         <button class="btn btn-primary btn-sm" id="manual-refresh">
                             <i class="fas fa-sync-alt"></i> <span class="d-none d-md-inline">Refresh</span>
                         </button>
-                         <button class="btn btn-info btn-sm text-white" id="copy-all-otp" title="Copy semua OTP dari bawah ke atas">
+                        <button class="btn btn-info btn-sm text-white" id="copy-all-otp" title="Copy semua OTP dari bawah ke atas">
                             <i class="fas fa-copy"></i> <span class="d-none d-md-inline">Copy All OTP</span>
                         </button>
                     </div>
@@ -236,10 +236,32 @@
             let customFilterList = []; // Array untuk menyimpan filter custom
             let isFilterVisible = true; // Track filter visibility
 
-            // Set CSRF token untuk AJAX
+            // Debug current environment
+            const currentDomain = window.location.origin;
+            const isProduction = currentDomain.includes('mbah.my.id') || currentDomain.includes('elnusatour.id');
+            console.log('🌐 Current domain:', currentDomain);
+            console.log('🏭 Is Production:', isProduction);
+
+            // Set CSRF token dan konfigurasi AJAX untuk mengatasi CORS
             $.ajaxSetup({
                 headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                    // Removed Content-Type to avoid preflight CORS
+                },
+                timeout: 30000, // 30 detik timeout
+                cache: false,
+                crossDomain: false, // Ensure same-origin requests
+                // Tambahan untuk production
+                xhrFields: {
+                    withCredentials: false
+                },
+                beforeSend: function(xhr, settings) {
+                    console.log('📤 AJAX Request:', {
+                        url: settings.url,
+                        method: settings.type,
+                        contentType: settings.contentType
+                    });
                 }
             });
 
@@ -303,6 +325,90 @@
                 loadOtpData();
             });
 
+            // Fungsi untuk test konektivitas jaringan
+            function checkNetworkConnection() {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.timeout = 5000; // 5 detik timeout
+                    xhr.onload = () => {
+                        console.log('✅ Network test OK');
+                        resolve(true);
+                    };
+                    xhr.onerror = () => {
+                        console.error('❌ Network test failed');
+                        reject(false);
+                    };
+                    xhr.ontimeout = () => {
+                        console.warn('⏰ Network test timeout');
+                        reject(false);
+                    };
+
+                    // Test dengan endpoint yang sama seperti aplikasi
+                    const testUrl = isProduction ?
+                        'https://kode.mbah.my.id/' :
+                        window.location.origin + '/';
+
+                    console.log('🔍 Testing network to:', testUrl);
+                    xhr.open('HEAD', testUrl, true);
+                    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                    xhr.send();
+                });
+            }
+
+            // Helper function untuk URL yang correct di production
+            function getApiUrl(endpoint) {
+                let baseUrl;
+
+                if (isProduction) {
+                    // Paksa HTTPS untuk production dan detect domain yang benar
+                    if (currentDomain.includes('mbah.my.id')) {
+                        baseUrl = 'https://kode.mbah.my.id';
+                    } else if (currentDomain.includes('elnusatour.id')) {
+                        baseUrl = 'https://kode.elnusatour.id';
+                    } else {
+                        // Fallback paksa HTTPS
+                        baseUrl = window.location.origin.replace('http:', 'https:');
+                    }
+
+                    // Untuk production, pastikan menggunakan HTTPS dan path yang benar
+                    const fullUrl = `${baseUrl}${endpoint}`;
+                    console.log(`🔗 Production URL: ${fullUrl}`);
+                    return fullUrl;
+                } else {
+                    baseUrl = window.location.origin;
+
+                    // Untuk local development, gunakan route Laravel yang sesuai dengan path baru
+                    const routes = {
+                        '/data': '{{ url('/data') }}',
+                        '/test': '{{ url('/test') }}'
+                    };
+
+                    // Fallback jika route tidak tersedia
+                    let url;
+                    try {
+                        url = routes[endpoint];
+                        if (!url || url.includes('route(')) {
+                            // Route tidak tersedia, gunakan manual URL
+                            url = `${baseUrl}${endpoint}`;
+                            console.warn(`⚠️ Route fallback used: ${url}`);
+                        }
+                    } catch (e) {
+                        url = `${baseUrl}${endpoint}`;
+                        console.warn(`⚠️ Route error, using manual URL: ${url}`);
+                    }
+
+                    console.log(`🔗 Development URL: ${url}`);
+                    return url;
+                }
+            }
+
+            // Force HTTPS di production
+            if (isProduction && window.location.protocol !== 'https:') {
+                console.warn('⚠️ Redirecting to HTTPS...');
+                window.location.href = window.location.href.replace('http:', 'https:');
+                return;
+            }
+
             // Fungsi untuk memuat data OTP
             function loadOtpData(showLoader = false) {
                 if (showLoader) {
@@ -310,11 +416,68 @@
                     $('#fetch-text').html('<span class="spinner-border spinner-border-sm me-1"></span>Loading...');
                 }
 
-                $.ajax({
-                    url: '{{ route('admin.otp.data') }}',
-                    method: 'GET',
-                    dataType: 'json',
-                    success: function(response) {
+                // Periksa konektivitas jaringan terlebih dahulu jika showLoader true
+                if (showLoader) {
+                    checkNetworkConnection()
+                        .then(() => {
+                            console.log('✓ Network connection OK');
+                            performAjaxRequest();
+                        })
+                        .catch(() => {
+                            console.warn('⚠️ Network connection issue');
+                            $('#fetch-status').removeClass('bg-warning bg-success').addClass('bg-danger');
+                            $('#fetch-text').text('No Connection');
+                            showNotification('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+                                'danger');
+                        });
+                } else {
+                    performAjaxRequest();
+                }
+
+                function performAjaxRequest() {
+                    const apiUrl = getApiUrl('/data');
+                    console.log('📡 Making request to:', apiUrl);
+
+                    // Gunakan fetch API yang lebih modern untuk menghindari CORS preflight
+                    if (isProduction) {
+                        fetch(apiUrl, {
+                                method: 'GET',
+                                credentials: 'same-origin',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                                }
+                                return response.json();
+                            })
+                            .then(response => {
+                                console.log('✓ Data received:', response);
+                                handleSuccessResponse(response);
+                            })
+                            .catch(error => {
+                                console.error('❌ Fetch Error:', error);
+                                handleErrorResponse(error);
+                            });
+                    } else {
+                        // Fallback ke jQuery AJAX untuk development
+                        $.ajax({
+                            url: apiUrl,
+                            method: 'GET',
+                            success: handleSuccessResponse,
+                            error: function(xhr, status, error) {
+                                handleErrorResponse({
+                                    xhr,
+                                    status,
+                                    error
+                                });
+                            }
+                        });
+                    }
+
+                    function handleSuccessResponse(response) {
                         console.log('✓ Data received:', response);
 
                         if (response.success) {
@@ -338,10 +501,12 @@
                                 console.log(
                                     `📊 Stats: ${response.message_count} messages, ${response.otp_count} OTPs`
                                 );
-                                
+
                                 // Tampilkan notifikasi fetch berhasil
                                 if (response.message_count > 0) {
-                                    showNotification(`Fetch berhasil: ${response.message_count} pesan baru diproses, ${response.otp_count} OTP ditemukan (5 menit terakhir)`, 'info');
+                                    showNotification(
+                                        `Fetch berhasil: ${response.message_count} pesan baru diproses, ${response.otp_count} OTP ditemukan (5 menit terakhir)`,
+                                        'info');
                                 }
                             }
 
@@ -355,42 +520,120 @@
                             showNotification('Failed: ' + (response.error || 'Unknown error'),
                                 'danger');
                         }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('❌ AJAX Error:', {
+                    }
+
+                    function handleErrorResponse(errorData) {
+                        // Handle both fetch API errors and jQuery AJAX errors
+                        let xhr, status, error;
+
+                        if (errorData.xhr) {
+                            // jQuery AJAX error format
+                            xhr = errorData.xhr;
+                            status = errorData.status;
+                            error = errorData.error;
+                        } else {
+                            // Fetch API error format
+                            xhr = {
+                                status: errorData.message?.includes('HTTP') ? parseInt(errorData.message.split(
+                                    ' ')[1]) : 0,
+                                statusText: errorData.message || 'Network Error',
+                                responseText: '',
+                                readyState: 4
+                            };
+                            status = 'error';
+                            error = errorData.message || 'Fetch failed';
+                        }
+
+                        console.error('❌ Request Error:', {
                             status: xhr.status,
                             statusText: xhr.statusText,
                             responseText: xhr.responseText,
-                            error: error
+                            error: error,
+                            readyState: xhr.readyState
                         });
 
                         $('#fetch-status').removeClass('bg-warning bg-success').addClass('bg-danger');
                         $('#fetch-text').text('Error');
 
-                        // Check if setup is needed
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            console.log('Error response:', response);
+                        let errorMessage = 'Gagal memuat data OTP';
+                        let errorType = 'danger';
 
-                            if (response.setup_url) {
-                                const setupMsg = `
+                        // Handle specific error types
+                        if (xhr.status === 0) {
+                            // Network error or CORS issue
+                            if (status === 'error') {
+                                const currentUrl = window.location.href;
+                                const expectedUrl = isProduction ? 'https://kode.mbah.my.id' : 'http://localhost';
+
+                                errorMessage = `
                                     <div>
-                                        Database belum disetup! 
-                                        <a href="${response.setup_url}" target="_blank" class="alert-link">
-                                            <strong>Klik disini untuk setup database</strong>
+                                        <strong>CORS/Network Error!</strong><br>
+                                        <small>Current: ${currentUrl}</small><br>
+                                        <small>Expected: ${expectedUrl}</small><br><br>
+                                        Kemungkinan penyebab:<br>
+                                        • Mixed Content (HTTP vs HTTPS)<br>
+                                        • CORS Policy tidak dikonfigurasi<br>
+                                        • Server tidak dapat diakses<br>
+                                        • Firewall atau CDN blocking<br>
+                                        <br>
+                                        <button class="btn btn-sm btn-primary mt-2" onclick="location.reload()">
+                                            <i class="fas fa-sync-alt"></i> Refresh Halaman
+                                        </button>
+                                        <a href="https://kode.mbah.my.id/" class="btn btn-sm btn-success mt-2 ms-2">
+                                            <i class="fas fa-external-link-alt"></i> Direct Link
                                         </a>
                                     </div>
                                 `;
-                                showNotification(setupMsg, 'warning');
-                            } else {
-                                showNotification('Gagal memuat data OTP: ' + (response.error || error),
-                                    'danger');
+                                errorType = 'warning';
                             }
-                        } catch (e) {
-                            showNotification('Gagal memuat data OTP', 'danger');
+                        } else if (xhr.status === 419) {
+                            // CSRF Token expired
+                            errorMessage = `
+                                <div>
+                                    <strong>Session Expired!</strong><br>
+                                    Token CSRF telah kedaluwarsa.<br>
+                                    <button class="btn btn-sm btn-primary mt-2" onclick="location.reload()">
+                                        <i class="fas fa-sync-alt"></i> Refresh Halaman
+                                    </button>
+                                </div>
+                            `;
+                        } else if (xhr.status === 500) {
+                            errorMessage = 'Server Error (500) - Periksa log server';
+                        } else if (xhr.status === 404) {
+                            errorMessage = 'Endpoint tidak ditemukan (404)';
+                        } else if (xhr.status === 403) {
+                            errorMessage = 'Akses ditolak (403) - Periksa permission';
                         }
+
+                        // Check if setup is needed (only for valid responses)
+                        if (xhr.responseText && xhr.responseText.trim()) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                console.log('Error response:', response);
+
+                                if (response.setup_url) {
+                                    const setupMsg = `
+                                        <div>
+                                            <strong>Database belum disetup!</strong><br>
+                                            <a href="${response.setup_url}" target="_blank" class="alert-link btn btn-warning btn-sm mt-2">
+                                                <i class="fas fa-database"></i> Setup Database Sekarang
+                                            </a>
+                                        </div>
+                                    `;
+                                    showNotification(setupMsg, 'warning');
+                                    return;
+                                } else if (response.error) {
+                                    errorMessage = 'Server Error: ' + response.error;
+                                }
+                            } catch (e) {
+                                // JSON parse error - responseText is not valid JSON
+                                console.warn('Response is not valid JSON:', xhr.responseText.substring(0, 200));
+                            }
+                        }
+
+                        showNotification(errorMessage, errorType);
                     }
-                });
+                } // End performAjaxRequest function
             }
 
             // Fetch now button
@@ -414,40 +657,84 @@
                 btn.prop('disabled', true).html(
                     '<span class="spinner-border spinner-border-sm me-1"></span>Testing...');
 
-                $.ajax({
-                    url: '{{ route('admin.otp.test') }}',
-                    method: 'GET',
-                    dataType: 'json',
-                    success: function(response) {
-                        $('#api-test-result').show();
-                        $('#api-test-content').text(JSON.stringify(response, null, 2));
+                const testUrl = getApiUrl('/test');
+                console.log('🧪 Testing API at:', testUrl);
 
-                        if (response.success) {
-                            showNotification(
-                                `API Test Success! ${response.total_messages} messages found`,
-                                'success');
-                        } else {
-                            showNotification('API Test Failed: ' + (response.error ||
-                                'Unknown error'), 'danger');
+                // Gunakan fetch API untuk production, jQuery untuk development
+                if (isProduction) {
+                    fetch(testUrl, {
+                            method: 'GET',
+                            credentials: 'same-origin',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            return response.json();
+                        })
+                        .then(response => {
+                            $('#api-test-result').show();
+                            $('#api-test-content').text(JSON.stringify(response, null, 2));
+
+                            if (response.success) {
+                                showNotification(
+                                    `API Test Success! ${response.total_messages} messages found`,
+                                    'success');
+                            } else {
+                                showNotification('API Test Failed: ' + (response.error ||
+                                    'Unknown error'), 'danger');
+                            }
+                        })
+                        .catch(error => {
+                            $('#api-test-result').show();
+                            $('#api-test-content').text('Error: ' + error.message);
+                            showNotification('API Test Error: ' + error.message, 'danger');
+                        })
+                        .finally(() => {
+                            btn.prop('disabled', false).html(
+                                '<i class="fas fa-flask"></i> <span class="d-none d-md-inline">Test API</span>'
+                                );
+                        });
+                } else {
+                    // Fallback jQuery untuk development
+                    $.ajax({
+                        url: testUrl,
+                        method: 'GET',
+                        success: function(response) {
+                            $('#api-test-result').show();
+                            $('#api-test-content').text(JSON.stringify(response, null, 2));
+
+                            if (response.success) {
+                                showNotification(
+                                    `API Test Success! ${response.total_messages} messages found`,
+                                    'success');
+                            } else {
+                                showNotification('API Test Failed: ' + (response.error ||
+                                    'Unknown error'), 'danger');
+                            }
+                        },
+                        error: function(xhr) {
+                            $('#api-test-result').show();
+                            let errorText = 'Unknown error';
+                            try {
+                                const errorData = JSON.parse(xhr.responseText);
+                                errorText = JSON.stringify(errorData, null, 2);
+                            } catch (e) {
+                                errorText = xhr.responseText || xhr.statusText;
+                            }
+                            $('#api-test-content').text(errorText);
+                            showNotification('API Test Error: ' + xhr.status, 'danger');
+                        },
+                        complete: function() {
+                            btn.prop('disabled', false).html(
+                                '<i class="fas fa-flask"></i> <span class="d-none d-md-inline">Test API</span>'
+                                );
                         }
-                    },
-                    error: function(xhr) {
-                        $('#api-test-result').show();
-                        let errorText = 'Unknown error';
-                        try {
-                            const errorData = JSON.parse(xhr.responseText);
-                            errorText = JSON.stringify(errorData, null, 2);
-                        } catch (e) {
-                            errorText = xhr.responseText || xhr.statusText;
-                        }
-                        $('#api-test-content').text(errorText);
-                        showNotification('API Test Error: ' + xhr.status, 'danger');
-                    },
-                    complete: function() {
-                        btn.prop('disabled', false).html(
-                            '<i class="fas fa-flask"></i> Test API Mail.TM');
-                    }
-                });
+                    });
+                }
             });
 
             // Fungsi untuk sort dan filter data
@@ -640,68 +927,8 @@
                 return date.toLocaleString('id-ID');
             }
 
-            // Copy to clipboard dengan fallback
-            window.copyToClipboard = function(text) {
-                // Method 1: Modern Clipboard API
-                if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(text).then(function() {
-                        showNotification('OTP "' + text + '" berhasil disalin ke clipboard!', 'success');
-                    }).catch(function(err) {
-                        // Fallback jika clipboard API gagal
-                        fallbackCopyToClipboard(text);
-                    });
-                } else {
-                    // Fallback untuk browser lama atau non-HTTPS
-                    fallbackCopyToClipboard(text);
-                }
-            };
-
-            // Fallback copy menggunakan textarea hidden
-            function fallbackCopyToClipboard(text) {
-                const textArea = document.createElement('textarea');
-                textArea.value = text;
-                
-                // Pastikan tidak terlihat
-                textArea.style.position = 'fixed';
-                textArea.style.left = '-9999px';
-                textArea.style.top = '-9999px';
-                
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                
-                try {
-                    const successful = document.execCommand('copy');
-                    if (successful) {
-                        showNotification('OTP "' + text + '" berhasil disalin ke clipboard!', 'success');
-                    } else {
-                        showNotification('Gagal menyalin OTP. Coba copy manual: ' + text, 'warning');
-                    }
-                } catch (err) {
-                    showNotification('Gagal menyalin OTP. Coba copy manual: ' + text, 'warning');
-                }
-                
-                document.body.removeChild(textArea);
-            }
-
-            // Tampilkan notifikasi
-            function showNotification(message, type = 'info') {
-                const alert = $(`
-            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        `);
-
-                $('#notification-container').append(alert);
-
-                setTimeout(function() {
-                    alert.fadeOut(function() {
-                        $(this).remove();
-                    });
-                }, 5000); // Extended to 5 seconds for setup messages
-            }
-$('#copy-all-otp').click(function() {
+            // Copy semua OTP dari bawah ke atas
+            $('#copy-all-otp').click(function() {
                 const rows = $('#otp-table-body tr').get().reverse();
                 const otpList = [];
 
@@ -763,6 +990,70 @@ $('#copy-all-otp').click(function() {
 
                 doCopy(textToCopy);
             });
+
+            // Copy to clipboard dengan fallback
+            window.copyToClipboard = function(text) {
+                // Method 1: Modern Clipboard API
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text).then(function() {
+                        showNotification('OTP "' + text + '" berhasil disalin ke clipboard!',
+                        'success');
+                    }).catch(function(err) {
+                        // Fallback jika clipboard API gagal
+                        fallbackCopyToClipboard(text);
+                    });
+                } else {
+                    // Fallback untuk browser lama atau non-HTTPS
+                    fallbackCopyToClipboard(text);
+                }
+            };
+
+            // Fallback copy menggunakan textarea hidden
+            function fallbackCopyToClipboard(text) {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+
+                // Pastikan tidak terlihat
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                textArea.style.top = '-9999px';
+
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        showNotification('OTP "' + text + '" berhasil disalin ke clipboard!', 'success');
+                    } else {
+                        showNotification('Gagal menyalin OTP. Coba copy manual: ' + text, 'warning');
+                    }
+                } catch (err) {
+                    showNotification('Gagal menyalin OTP. Coba copy manual: ' + text, 'warning');
+                }
+
+                document.body.removeChild(textArea);
+            }
+
+            // Tampilkan notifikasi
+            function showNotification(message, type = 'info') {
+                const alert = $(`
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `);
+
+                $('#notification-container').append(alert);
+
+                setTimeout(function() {
+                    alert.fadeOut(function() {
+                        $(this).remove();
+                    });
+                }, 5000); // Extended to 5 seconds for setup messages
+            }
+
             // Play notification sound
             function playNotificationSound() {
                 try {

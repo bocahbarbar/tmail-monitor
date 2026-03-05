@@ -4,9 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\OtpController;
 use App\Http\Controllers\Admin\MailAccountController;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+ Route::get('/', [OtpController::class, 'index'])->name('admin.otp');
 
 
 Route::prefix('admin')->group(function () {

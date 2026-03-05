@@ -12,5 +12,10 @@ class OtpCode extends Model
         'otp',
         'source',
         'status',
+        'read_at',
+    ];
+
+    protected $casts = [
+        'read_at' => 'datetime',
     ];
 }

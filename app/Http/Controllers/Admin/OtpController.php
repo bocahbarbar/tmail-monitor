@@ -23,7 +23,7 @@ class OtpController extends Controller
             $messageCount = $this->fetchAllAccountMessages();
             
             // Get OTP codes - hanya 5 menit terakhir untuk performa
-            $fiveMinutesAgo = now()->subMinutes(5);
+            $fiveMinutesAgo = now()->subMinutes(2);
             $otps = OtpCode::where('created_at', '>=', $fiveMinutesAgo)
                 ->orderBy('created_at', 'desc')
                 ->get();
