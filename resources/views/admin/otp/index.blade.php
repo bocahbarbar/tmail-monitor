@@ -88,7 +88,8 @@
                         <button class="btn btn-primary btn-sm" id="manual-refresh">
                             <i class="fas fa-sync-alt"></i> <span class="d-none d-md-inline">Refresh</span>
                         </button>
-                         <button class="btn btn-info btn-sm text-white" id="copy-all-otp" title="Copy semua OTP dari bawah ke atas">
+                        <button class="btn btn-info btn-sm text-white" id="copy-all-otp"
+                            title="Copy semua OTP dari bawah ke atas">
                             <i class="fas fa-copy"></i> <span class="d-none d-md-inline">Copy All OTP</span>
                         </button>
                     </div>
@@ -228,7 +229,7 @@
 
 @push('scripts')
     <script>
-        $(document).ready(function() {
+        $(document).ready(function () {
             let refreshInterval;
             let isRefreshing = true;
             let currentInterval = 5000; // 5 detik default
@@ -244,7 +245,7 @@
             });
 
             // Toggle filter visibility
-            $('#toggle-filter').click(function() {
+            $('#toggle-filter').click(function () {
                 isFilterVisible = !isFilterVisible;
                 const $filterSection = $('#filter-section');
                 const $icon = $(this).find('i');
@@ -282,7 +283,7 @@
             }
 
             // Apply filter button
-            $('#apply-filter').click(function() {
+            $('#apply-filter').click(function () {
                 customFilterList = getVisaList();
                 if (customFilterList.length > 0) {
                     $('#filter-status').show();
@@ -295,7 +296,7 @@
             });
 
             // Clear filter button
-            $('#clear-filter').click(function() {
+            $('#clear-filter').click(function () {
                 customFilterList = [];
                 $('#visaList').val('');
                 $('#filter-status').hide();
@@ -311,10 +312,10 @@
                 }
 
                 $.ajax({
-                    url: '{{ route('admin.otp.data') }}',
+                    url: '/api/otp/data',
                     method: 'GET',
                     dataType: 'json',
-                    success: function(response) {
+                    success: function (response) {
                         console.log('✓ Data received:', response);
 
                         if (response.success) {
@@ -338,7 +339,7 @@
                                 console.log(
                                     `📊 Stats: ${response.message_count} messages, ${response.otp_count} OTPs`
                                 );
-                                
+
                                 // Tampilkan notifikasi fetch berhasil
                                 if (response.message_count > 0) {
                                     showNotification(`Fetch berhasil: ${response.message_count} pesan baru diproses, ${response.otp_count} OTP ditemukan (5 menit terakhir)`, 'info');
@@ -356,7 +357,7 @@
                                 'danger');
                         }
                     },
-                    error: function(xhr, status, error) {
+                    error: function (xhr, status, error) {
                         console.error('❌ AJAX Error:', {
                             status: xhr.status,
                             statusText: xhr.statusText,
@@ -374,13 +375,13 @@
 
                             if (response.setup_url) {
                                 const setupMsg = `
-                                    <div>
-                                        Database belum disetup! 
-                                        <a href="${response.setup_url}" target="_blank" class="alert-link">
-                                            <strong>Klik disini untuk setup database</strong>
-                                        </a>
-                                    </div>
-                                `;
+                                        <div>
+                                            Database belum disetup! 
+                                            <a href="${response.setup_url}" target="_blank" class="alert-link">
+                                                <strong>Klik disini untuk setup database</strong>
+                                            </a>
+                                        </div>
+                                    `;
                                 showNotification(setupMsg, 'warning');
                             } else {
                                 showNotification('Gagal memuat data OTP: ' + (response.error || error),
@@ -394,7 +395,7 @@
             }
 
             // Fetch now button
-            $('#fetch-now').click(function() {
+            $('#fetch-now').click(function () {
                 const btn = $(this);
                 btn.prop('disabled', true).html(
                     '<span class="spinner-border spinner-border-sm me-1"></span>Fetching...');
@@ -409,7 +410,7 @@
             });
 
             // Test API button
-            $('#test-api').click(function() {
+            $('#test-api').click(function () {
                 const btn = $(this);
                 btn.prop('disabled', true).html(
                     '<span class="spinner-border spinner-border-sm me-1"></span>Testing...');
@@ -418,7 +419,7 @@
                     url: '{{ route('admin.otp.test') }}',
                     method: 'GET',
                     dataType: 'json',
-                    success: function(response) {
+                    success: function (response) {
                         $('#api-test-result').show();
                         $('#api-test-content').text(JSON.stringify(response, null, 2));
 
@@ -431,7 +432,7 @@
                                 'Unknown error'), 'danger');
                         }
                     },
-                    error: function(xhr) {
+                    error: function (xhr) {
                         $('#api-test-result').show();
                         let errorText = 'Unknown error';
                         try {
@@ -443,7 +444,7 @@
                         $('#api-test-content').text(errorText);
                         showNotification('API Test Error: ' + xhr.status, 'danger');
                     },
-                    complete: function() {
+                    complete: function () {
                         btn.prop('disabled', false).html(
                             '<i class="fas fa-flask"></i> Test API Mail.TM');
                     }
@@ -462,11 +463,11 @@
                 let others = [];
 
                 // Pisahkan data yang match dan tidak match
-                data.forEach(function(item) {
+                data.forEach(function (item) {
                     let matchFound = false;
 
                     // Cek apakah ada field yang match dengan filter list
-                    customFilterList.forEach(function(filterId) {
+                    customFilterList.forEach(function (filterId) {
                         const filterLower = filterId.toLowerCase();
                         const checkFields = [
                             item.message_id,
@@ -476,9 +477,9 @@
                             item.id ? item.id.toString() : null
                         ];
 
-                        checkFields.forEach(function(field) {
+                        checkFields.forEach(function (field) {
                             if (field && field.toString().toLowerCase().includes(
-                                    filterLower)) {
+                                filterLower)) {
                                 matchFound = true;
                             }
                         });
@@ -492,11 +493,11 @@
                 });
 
                 // Sort filtered items berdasarkan urutan di customFilterList (reversed)
-                filtered.sort(function(a, b) {
+                filtered.sort(function (a, b) {
                     let indexA = -1;
                     let indexB = -1;
 
-                    customFilterList.forEach(function(filterId, index) {
+                    customFilterList.forEach(function (filterId, index) {
                         const filterLower = filterId.toLowerCase();
 
                         // Check item A
@@ -507,9 +508,9 @@
                             a.source,
                             a.id ? a.id.toString() : null
                         ];
-                        checkFieldsA.forEach(function(field) {
+                        checkFieldsA.forEach(function (field) {
                             if (field && field.toString().toLowerCase().includes(
-                                    filterLower) && indexA === -1) {
+                                filterLower) && indexA === -1) {
                                 indexA = index;
                             }
                         });
@@ -522,9 +523,9 @@
                             b.source,
                             b.id ? b.id.toString() : null
                         ];
-                        checkFieldsB.forEach(function(field) {
+                        checkFieldsB.forEach(function (field) {
                             if (field && field.toString().toLowerCase().includes(
-                                    filterLower) && indexB === -1) {
+                                filterLower) && indexB === -1) {
                                 indexB = index;
                             }
                         });
@@ -544,53 +545,53 @@
 
                 if (sortedData.length === 0) {
                     $('#otp-table-body').html(`
-                <tr>
-                    <td colspan="7" class="text-center text-muted">
-                        <i class="fas fa-inbox fa-3x mb-3"></i>
-                        <p>Belum ada data OTP</p>
-                    </td>
-                </tr>
-            `);
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <p>Belum ada data OTP</p>
+                        </td>
+                    </tr>
+                `);
                     return;
                 }
 
                 let html = '';
-                sortedData.forEach(function(otp, index) {
+                sortedData.forEach(function (otp, index) {
                     const isNew = !lastData.find(item => item.id === otp.id);
                     const isFiltered = customFilterList.length > 0 && isMatchingFilter(otp);
                     const rowClass = isNew ? 'new-row' : (isFiltered ? 'filtered-row' : '');
 
                     html += `
-                <tr class="${rowClass}">
-                    <td class="d-none d-md-table-cell">${index + 1}</td>
-                    <td class="d-none d-lg-table-cell">
-                        <i class="fas fa-envelope text-primary"></i> 
-                        <small>${otp.to_address || '-'}</small>
-                    </td>
-                    <td>
-                        <span class="otp-code">${otp.otp || '-'}</span>
-                        ${otp.otp ? `<i class="fas fa-copy copy-btn ms-2 text-secondary" onclick="copyToClipboard('${otp.otp}')" title="Copy OTP"></i>` : ''}
-                        <div class="d-md-none mt-1">
-                            <small class="text-muted d-block"><i class="fas fa-envelope"></i> ${otp.to_address || '-'}</small>
-                            <small class="text-muted d-block"><i class="far fa-clock"></i> ${formatDate(otp.created_at)}</small>
-                        </div>
-                    </td>
-                    <td class="d-none d-md-table-cell">
-                        <span class="badge bg-secondary">${otp.source || '-'}</span>
-                    </td>
-                    <td class="d-none d-lg-table-cell">
-                        <span class="badge bg-${otp.status === 'active' ? 'success' : 'warning'}">
-                            ${otp.status || 'pending'}
-                        </span>
-                    </td>
-                    <td class="d-none d-xl-table-cell">
-                        <small class="text-muted">${otp.message_id ? otp.message_id.substring(0, 30) + '...' : '-'}</small>
-                    </td>
-                    <td class="d-none d-md-table-cell">
-                        <small><i class="far fa-clock"></i> ${formatDate(otp.created_at)}</small>
-                    </td>
-                </tr>
-            `;
+                    <tr class="${rowClass}">
+                        <td class="d-none d-md-table-cell">${index + 1}</td>
+                        <td class="d-none d-lg-table-cell">
+                            <i class="fas fa-envelope text-primary"></i> 
+                            <small>${otp.to_address || '-'}</small>
+                        </td>
+                        <td>
+                            <span class="otp-code">${otp.otp || '-'}</span>
+                            ${otp.otp ? `<i class="fas fa-copy copy-btn ms-2 text-secondary" onclick="copyToClipboard('${otp.otp}')" title="Copy OTP"></i>` : ''}
+                            <div class="d-md-none mt-1">
+                                <small class="text-muted d-block"><i class="fas fa-envelope"></i> ${otp.to_address || '-'}</small>
+                                <small class="text-muted d-block"><i class="far fa-clock"></i> ${formatDate(otp.created_at)}</small>
+                            </div>
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            <span class="badge bg-secondary">${otp.source || '-'}</span>
+                        </td>
+                        <td class="d-none d-lg-table-cell">
+                            <span class="badge bg-${otp.status === 'active' ? 'success' : 'warning'}">
+                                ${otp.status || 'pending'}
+                            </span>
+                        </td>
+                        <td class="d-none d-xl-table-cell">
+                            <small class="text-muted">${otp.message_id ? otp.message_id.substring(0, 30) + '...' : '-'}</small>
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            <small><i class="far fa-clock"></i> ${formatDate(otp.created_at)}</small>
+                        </td>
+                    </tr>
+                `;
                 });
 
                 $('#otp-table-body').html(html);
@@ -602,7 +603,7 @@
                 if (customFilterList.length === 0) return false;
 
                 let matchFound = false;
-                customFilterList.forEach(function(filterId) {
+                customFilterList.forEach(function (filterId) {
                     const filterLower = filterId.toLowerCase();
                     const checkFields = [
                         item.message_id,
@@ -612,7 +613,7 @@
                         item.id ? item.id.toString() : null
                     ];
 
-                    checkFields.forEach(function(field) {
+                    checkFields.forEach(function (field) {
                         if (field && field.toString().toLowerCase().includes(filterLower)) {
                             matchFound = true;
                         }
@@ -641,12 +642,12 @@
             }
 
             // Copy to clipboard dengan fallback
-            window.copyToClipboard = function(text) {
+            window.copyToClipboard = function (text) {
                 // Method 1: Modern Clipboard API
                 if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(text).then(function() {
+                    navigator.clipboard.writeText(text).then(function () {
                         showNotification('OTP "' + text + '" berhasil disalin ke clipboard!', 'success');
-                    }).catch(function(err) {
+                    }).catch(function (err) {
                         // Fallback jika clipboard API gagal
                         fallbackCopyToClipboard(text);
                     });
@@ -660,16 +661,16 @@
             function fallbackCopyToClipboard(text) {
                 const textArea = document.createElement('textarea');
                 textArea.value = text;
-                
+
                 // Pastikan tidak terlihat
                 textArea.style.position = 'fixed';
                 textArea.style.left = '-9999px';
                 textArea.style.top = '-9999px';
-                
+
                 document.body.appendChild(textArea);
                 textArea.focus();
                 textArea.select();
-                
+
                 try {
                     const successful = document.execCommand('copy');
                     if (successful) {
@@ -680,32 +681,32 @@
                 } catch (err) {
                     showNotification('Gagal menyalin OTP. Coba copy manual: ' + text, 'warning');
                 }
-                
+
                 document.body.removeChild(textArea);
             }
 
             // Tampilkan notifikasi
             function showNotification(message, type = 'info') {
                 const alert = $(`
-            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        `);
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `);
 
                 $('#notification-container').append(alert);
 
-                setTimeout(function() {
-                    alert.fadeOut(function() {
+                setTimeout(function () {
+                    alert.fadeOut(function () {
                         $(this).remove();
                     });
                 }, 5000); // Extended to 5 seconds for setup messages
             }
-$('#copy-all-otp').click(function() {
+            $('#copy-all-otp').click(function () {
                 const rows = $('#otp-table-body tr').get().reverse();
                 const otpList = [];
 
-                rows.forEach(function(row) {
+                rows.forEach(function (row) {
                     const otpEl = $(row).find('.otp-code');
                     if (otpEl.length > 0) {
                         const otpText = otpEl.text().trim();
@@ -723,15 +724,15 @@ $('#copy-all-otp').click(function() {
                 const textToCopy = otpList.join('\n');
                 const btn = $(this);
 
-                const doCopy = function(text) {
+                const doCopy = function (text) {
                     if (navigator.clipboard && window.isSecureContext) {
-                        navigator.clipboard.writeText(text).then(function() {
+                        navigator.clipboard.writeText(text).then(function () {
                             btn.html('<i class="fas fa-check"></i> <span class="d-none d-md-inline">Copied!</span>');
-                            setTimeout(function() {
+                            setTimeout(function () {
                                 btn.html('<i class="fas fa-copy"></i> <span class="d-none d-md-inline">Copy All OTP</span>');
                             }, 2000);
                             showNotification(`${otpList.length} OTP berhasil disalin (bawah ke atas)!`, 'success');
-                        }).catch(function() {
+                        }).catch(function () {
                             fallbackCopy(text);
                         });
                     } else {
@@ -739,7 +740,7 @@ $('#copy-all-otp').click(function() {
                     }
                 };
 
-                const fallbackCopy = function(text) {
+                const fallbackCopy = function (text) {
                     const ta = document.createElement('textarea');
                     ta.value = text;
                     ta.style.position = 'fixed';
@@ -751,7 +752,7 @@ $('#copy-all-otp').click(function() {
                     try {
                         document.execCommand('copy');
                         btn.html('<i class="fas fa-check"></i> <span class="d-none d-md-inline">Copied!</span>');
-                        setTimeout(function() {
+                        setTimeout(function () {
                             btn.html('<i class="fas fa-copy"></i> <span class="d-none d-md-inline">Copy All OTP</span>');
                         }, 2000);
                         showNotification(`${otpList.length} OTP berhasil disalin (bawah ke atas)!`, 'success');
@@ -776,7 +777,7 @@ $('#copy-all-otp').click(function() {
             }
 
             // Toggle auto refresh
-            $('#toggle-refresh').click(function() {
+            $('#toggle-refresh').click(function () {
                 isRefreshing = !isRefreshing;
 
                 if (isRefreshing) {
@@ -791,7 +792,7 @@ $('#copy-all-otp').click(function() {
             });
 
             // Change interval
-            $('#interval-select').change(function() {
+            $('#interval-select').change(function () {
                 currentInterval = parseInt($(this).val()) * 1000;
                 $('#refresh-interval').text($(this).val());
                 $('#refresh-interval-mobile').text($(this).val());
@@ -804,7 +805,7 @@ $('#copy-all-otp').click(function() {
             });
 
             // Manual refresh
-            $('#manual-refresh').click(function() {
+            $('#manual-refresh').click(function () {
                 $(this).html('<i class="fas fa-sync-alt fa-spin"></i> Refreshing...');
                 loadOtpData();
 
@@ -832,7 +833,7 @@ $('#copy-all-otp').click(function() {
             startAutoRefresh();
 
             // Stop refresh saat user meninggalkan halaman
-            $(window).on('beforeunload', function() {
+            $(window).on('beforeunload', function () {
                 stopAutoRefresh();
             });
         });
