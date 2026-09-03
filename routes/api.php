@@ -20,3 +20,6 @@ Route::post('/otp/all', [OtpApiController::class, 'getAllOtp']);
 
 // GET /api/otp/data → Fetch dari mail accounts & return OTP 2 menit terakhir (dipakai dashboard)
 Route::get('/otp/data', [OtpApiController::class, 'fetchData'])->name('api.otp.data');
+
+// POST /api/otp/test-inject → [TEST ONLY] Simulasi email masuk & ekstrak OTP tanpa mail.tm
+Route::post('/otp/test-inject', [OtpApiController::class, 'testInject'])->name('api.otp.test-inject');

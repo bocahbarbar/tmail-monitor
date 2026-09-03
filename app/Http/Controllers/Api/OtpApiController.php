@@ -22,7 +22,7 @@ class OtpApiController extends Controller
     public function getLatestOtp(Request $request)
     {
         $email = $request->input('email');
-        $cutoff = Carbon::now()->subMinute(); // 1 menit yang lalu
+        $cutoff = Carbon::now()->subMinutes(3); // 3 menit — beri ruang untuk proses login paralel
 
         $otp = OtpCode::where('to_address', $email)
             ->whereNull('read_at')                    // belum pernah dibaca
@@ -72,6 +72,57 @@ class OtpApiController extends Controller
             'count' => $otps->count(),
             'data' => $otps,
         ]);
+    }
+
+    /**
+     * POST /api/otp/test-inject
+     * [TEST ONLY] Simulasikan email masuk, ekstrak OTP, simpan ke DB.
+     * Body JSON: { "email": "test@example.com", "subject": "...", "body": "Kode OTP kamu adalah 123456" }
+     */
+    public function testInject(Request $request)
+    {
+        $email   = $request->input('email', 'test@example.com');
+        $subject = $request->input('subject', 'Test OTP Email');
+        $body    = $request->input('body', '');
+
+        if (!$body) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Field "body" wajib diisi dengan isi email yang mengandung OTP.',
+            ], 422);
+        }
+
+        $otp = $this->extractOtp($body);
+
+        if (!$otp) {
+            return response()->json([
+                'success'  => false,
+                'email'    => $email,
+                'subject'  => $subject,
+                'body'     => $body,
+                'message'  => 'Tidak ada OTP yang berhasil diekstrak dari body email. Pastikan ada angka 4–8 digit.',
+            ], 200);
+        }
+
+        $record = OtpCode::create([
+            'message_id' => 'TEST-' . uniqid(),
+            'to_address' => $email,
+            'otp'        => $otp,
+            'source'     => $subject,
+            'status'     => 'active',
+        ]);
+
+        return response()->json([
+            'success'    => true,
+            'email'      => $email,
+            'subject'    => $subject,
+            'body'       => $body,
+            'otp_found'  => $otp,
+            'otp_length' => strlen($otp),
+            'message_id' => $record->message_id,
+            'created_at' => $record->created_at->format('Y-m-d H:i:s'),
+            'note'       => 'OTP berhasil disimpan ke DB. Sekarang bisa dicek via POST /api/otp',
+        ], 201);
     }
 
     /**
