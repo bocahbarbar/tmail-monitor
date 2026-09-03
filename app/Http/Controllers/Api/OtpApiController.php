@@ -34,8 +34,8 @@ class OtpApiController extends Controller
             return response()->json([
                 'success' => false,
                 'email' => $email,
-                'message' => 'No fresh OTP found (either expired >1min or already read)',
-            ], 404);
+                'message' => 'No fresh OTP found (either expired >3min or already read)',
+            ], 200);
         }
 
         // Tandai sudah dibaca
